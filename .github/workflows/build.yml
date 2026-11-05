@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'new-api tag/branch'
+        description: 'new-api tag'
         required: false
         default: 'v1.0.0-rc.48'
   push:
@@ -21,15 +21,12 @@ jobs:
 
       - name: Fetch new-api source
         run: |
-          set -e
-          REF="${{ github.event.inputs.ref || 'v1.0.0-rc.48' }}"
+          REF="${{ github.event.inputs.ref }}"
+          if [ -z "$REF" ]; then REF="v1.0.0-rc.48"; fi
           echo "Fetching new-api @ $REF"
           mkdir -p src
           curl -fL --retry 3 --max-time 300 \
             "https://codeload.github.com/QuantumNous/new-api/tar.gz/refs/tags/${REF}" \
-            -o src.tgz || \
-          curl -fL --retry 3 --max-time 300 \
-            "https://codeload.github.com/QuantumNous/new-api/tar.gz/refs/heads/${REF}" \
             -o src.tgz
           tar -xzf src.tgz -C src --strip-components=1
           ls src
@@ -39,18 +36,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: src/web/package-lock.json
 
       - name: Apply Opunai patches
         run: |
-          set -e
           cd src/web
-          echo "=== 当前 web 结构 ==="
+          echo "=== web 目录 ==="
           ls
-          if [ -f /home/runner/work/opunai-web/opunai-web/patch/apply.sh ]; then
-            echo "=== 应用自定义 patch ==="
-            sh /home/runner/work/opunai-web/opunai-web/patch/apply.sh "$PWD"
+          WS="${GITHUB_WORKSPACE:-/home/runner/work/opunai-web/opunai-web}"
+          if [ -f "$WS/patch/apply.sh" ]; then
+            echo "=== 应用 patch ==="
+            sh "$WS/patch/apply.sh" "$PWD"
           else
             echo "no custom patch"
           fi
@@ -58,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd src/web
-          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          npm install --no-audit --no-fund
           echo "=== node_modules ==="
           ls node_modules | wc -l
 
@@ -67,7 +62,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=6144
         run: |
           cd src/web
-          cat package.json | head -40
+          node -e "console.log(JSON.stringify(require('./package.json').scripts,null,2))"
           npm run build
           echo "=== dist ==="
           ls -la dist | head -20
