@@ -29,7 +29,6 @@ jobs:
             "https://codeload.github.com/QuantumNous/new-api/tar.gz/refs/tags/${REF}" \
             -o src.tgz
           tar -xzf src.tgz -C src --strip-components=1
-          ls src
           test -d src/web
 
       - name: Setup Node
@@ -37,14 +36,22 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Fix package.json overrides
+        run: |
+          cd src/web
+          node -e "
+            const fs=require('fs');
+            const p=JSON.parse(fs.readFileSync('package.json','utf8'));
+            if (p.overrides) { console.log('REMOVING overrides:', JSON.stringify(p.overrides)); delete p.overrides; }
+            fs.writeFileSync('package.json', JSON.stringify(p,null,2));
+            console.log('scripts:', JSON.stringify(p.scripts));
+          "
+
       - name: Apply Opunai patches
         run: |
           cd src/web
-          echo "=== web 目录 ==="
-          ls
-          WS="${GITHUB_WORKSPACE:-/home/runner/work/opunai-web/opunai-web}"
+          WS="${GITHUB_WORKSPACE}"
           if [ -f "$WS/patch/apply.sh" ]; then
-            echo "=== 应用 patch ==="
             sh "$WS/patch/apply.sh" "$PWD"
           else
             echo "no custom patch"
@@ -53,7 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd src/web
-          npm install --no-audit --no-fund
+          npm install --no-audit --no-fund --legacy-peer-deps
           echo "=== node_modules ==="
           ls node_modules | wc -l
 
@@ -62,7 +69,6 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=6144
         run: |
           cd src/web
-          node -e "console.log(JSON.stringify(require('./package.json').scripts,null,2))"
           npm run build
           echo "=== dist ==="
           ls -la dist | head -20
