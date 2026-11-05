@@ -1,0 +1,65 @@
+name: Build new-api full binary
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: new-api tag
+        required: false
+        default: v1.0.0-rc.48
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch source
+        run: |
+          REF="${{ github.event.inputs.ref }}"
+          if [ -z "$REF" ]; then REF="v1.0.0-rc.48"; fi
+          mkdir -p src
+          curl -fL --retry 3 --max-time 300 "https://codeload.github.com/QuantumNous/new-api/tar.gz/refs/tags/${REF}" -o src.tgz
+          tar -xzf src.tgz -C src --strip-components=1
+          ls src
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frontend deps
+        run: |
+          cd src/web
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));delete p.overrides;fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
+          npm install --no-audit --no-fund --legacy-peer-deps
+          npm install @lobehub/ui antd antd-style --no-audit --no-fund --legacy-peer-deps || true
+      - name: Patch
+        run: |
+          cd src/web
+          WS="${GITHUB_WORKSPACE}"
+          if [ -f "$WS/patch/apply.sh" ]; then sh "$WS/patch/apply.sh" "$PWD"; else echo no-patch; fi
+      - name: Build frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: |
+          cd src/web
+          npm run build
+          du -sh dist 2>/dev/null || du -sh build
+          ls
+      - name: Build backend
+        run: |
+          cd src
+          head -5 go.mod
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o /tmp/new-api-arm64 . 2>&1 | tail -20
+          ls -lh /tmp/new-api-arm64
+      - name: Package
+        run: |
+          mkdir -p out && cp /tmp/new-api-arm64 out/
+          tar -czf new-api-arm64.tar.gz -C out .
+          ls -lh new-api-arm64.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: new-api-arm64-binary
+          path: new-api-arm64.tar.gz
+          retention-days: 7
