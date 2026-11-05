@@ -58,6 +58,18 @@ jobs:
           ls node_modules/@lobehub/ui/package.json 2>/dev/null && echo LOBEUI_OK || echo LOBEUI_MISSING
           ls node_modules/antd-style/package.json 2>/dev/null && echo ANTDSTYLE_OK || echo ANTDSTYLE_MISSING
 
+      - name: Apply Opunai patches
+        run: |
+          WS="${GITHUB_WORKSPACE}"
+          echo "=== workspace: $WS ==="
+          ls -la "$WS"
+          if [ -f "$WS/patch/apply.sh" ]; then
+            echo "=== applying patch ==="
+            sh "$WS/patch/apply.sh" "$PWD"
+          else
+            echo "NO_PATCH_FOUND"
+          fi
+
       - name: Build
         env:
           NODE_OPTIONS: --max-old-space-size=6144
