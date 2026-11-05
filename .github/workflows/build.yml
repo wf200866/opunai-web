@@ -44,18 +44,19 @@ jobs:
             const p=JSON.parse(fs.readFileSync('package.json','utf8'));
             if (p.overrides) { console.log('REMOVING overrides'); delete p.overrides; }
             fs.writeFileSync('package.json', JSON.stringify(p,null,2));
-            console.log('deps @lobehub:', JSON.stringify(Object.keys(p.dependencies||{}).filter(k=>k.includes('lobehub'))));
+            console.log('ALL_DEPS:', Object.keys(p.dependencies||{}).join(','));
           "
 
       - name: Install dependencies
         run: |
           cd src/web
           npm install --no-audit --no-fund --legacy-peer-deps
-          echo "=== 补装 lobehub ==="
-          npm install @lobehub/ui --no-audit --no-fund --legacy-peer-deps || echo "lobehub/ui install failed, continuing"
-          echo "=== node_modules ==="
-          ls node_modules | wc -l
-          ls node_modules/@lobehub 2>/dev/null || echo NO_LOBEHUB
+          echo "=== 补装 @lobehub 依赖链 ==="
+          npm install @lobehub/ui antd antd-style --no-audit --no-fund --legacy-peer-deps || true
+          echo "=== 检查 ==="
+          ls node_modules/antd/package.json 2>/dev/null && echo ANTD_OK || echo ANTD_MISSING
+          ls node_modules/@lobehub/ui/package.json 2>/dev/null && echo LOBEUI_OK || echo LOBEUI_MISSING
+          ls node_modules/antd-style/package.json 2>/dev/null && echo ANTDSTYLE_OK || echo ANTDSTYLE_MISSING
 
       - name: Build
         env:
