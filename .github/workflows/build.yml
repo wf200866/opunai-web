@@ -42,27 +42,20 @@ jobs:
           node -e "
             const fs=require('fs');
             const p=JSON.parse(fs.readFileSync('package.json','utf8'));
-            if (p.overrides) { console.log('REMOVING overrides:', JSON.stringify(p.overrides)); delete p.overrides; }
+            if (p.overrides) { console.log('REMOVING overrides'); delete p.overrides; }
             fs.writeFileSync('package.json', JSON.stringify(p,null,2));
-            console.log('scripts:', JSON.stringify(p.scripts));
+            console.log('deps @lobehub:', JSON.stringify(Object.keys(p.dependencies||{}).filter(k=>k.includes('lobehub'))));
           "
-
-      - name: Apply Opunai patches
-        run: |
-          cd src/web
-          WS="${GITHUB_WORKSPACE}"
-          if [ -f "$WS/patch/apply.sh" ]; then
-            sh "$WS/patch/apply.sh" "$PWD"
-          else
-            echo "no custom patch"
-          fi
 
       - name: Install dependencies
         run: |
           cd src/web
           npm install --no-audit --no-fund --legacy-peer-deps
+          echo "=== 补装 lobehub ==="
+          npm install @lobehub/ui --no-audit --no-fund --legacy-peer-deps || echo "lobehub/ui install failed, continuing"
           echo "=== node_modules ==="
           ls node_modules | wc -l
+          ls node_modules/@lobehub 2>/dev/null || echo NO_LOBEHUB
 
       - name: Build
         env:
