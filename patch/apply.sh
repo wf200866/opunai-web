@@ -42,7 +42,7 @@ contrib_item = """          {
           },
           {
             title: t('\u8d21\u732e\u4e0a\u6e38 Key'),
-            url: '/contribute',
+            url: 'https://opunai.dpdns.org/contribute.html',
             icon: Upload,
           },"""
 
